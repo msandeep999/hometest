@@ -1,58 +1,62 @@
 pipeline {
-    agent { label 'build-server' }
-
     environment {
-        // Load the secret file into an environment variable
         SECRET_FILE = credentials('my-secret-id')
+        ACR_CREDENTIALS = credentials('acr-credentials-id') // ACR credentials in Jenkins
+        IMAGE_NAME = "testhome.azurecr.io/my-app-image:latest" //
     }
 
     stages {
-        // Stage 1: Build Docker Image
         stage('Build Docker Image') {
+            agent { label 'build-server' }
             steps {
                 script {
                     echo "Building Docker image..."
-                    docker.build('my-app-image', '.')  // Builds the image using Dockerfile
-                }
-            }
-        }
+                    def appImage = docker.build("my-app-image", ".")
 
-        // Stage 2: Test Docker Image
-        stage('Test Docker Image') {
-            steps {
-                script {
-                    echo "Testing Docker image..."
-
-                    // Run the container and execute tests inside
-                    docker.image('my-app-image').inside('-w /app') {
-                        // Copy the secret file into the container if required
-                        sh 'cp $SECRET_FILE /app/config.json'
-
-                        // Run tests (assuming `npm test` is defined in package.json)
-                        sh 'npm test'
+                    echo "Logging in to ACR and pushing Docker image..."
+                    docker.withRegistry("https://${env.IMAGE_NAME.split('/')[0]}", 'acr-credentials-id') {
+                        appImage.push('latest')
                     }
                 }
             }
         }
 
-        // Stage 3: Run Docker Image
+        stage('Test Docker Image') {
+            agent { label 'test-server' }
+            steps {
+                    script {
+                        echo "Logging in to ACR and pulling Docker image for testing..."
+                        docker.withRegistry("https://${env.IMAGE_NAME.split('/')[0]}", 'acr-credentials-id') {
+                            def appImage = docker.image(IMAGE_NAME)
+                            appImage.pull()
+                            appImage.inside('-w /app') {
+                                sh 'cp $SECRET_FILE_PATH /app/config.json'
+                                sh 'npm test'
+                            }
+                        }
+                    }
+            }
+        }
+
         stage('Run Docker Image') {
+            agent { label 'deploy-server' }
             steps {
                 script {
-                    echo "Running Docker container..."
+                    echo "Logging in to ACR and pulling Docker image for deployment..."
+                    docker.withRegistry("https://${env.IMAGE_NAME.split('/')[0]}", 'acr-credentials-id') {
+                        def appImage = docker.image(IMAGE_NAME)
+                        appImage.pull()
+                    }
 
-                    // Stop and remove any previous instance of the container
+                    echo "Running Docker container..."
                     sh '''
                         docker stop my-app-container || true
                         docker rm -f my-app-container || true
+                        docker run -d --name my-app-container -p 80:80 ${IMAGE_NAME}
                     '''
 
-                    // Run a new container with the built image
-                    sh 'docker run -d --name my-app-container -p 80:80 my-app-image:latest'
-
-                    // Optional: Health check to confirm the container is up and running
                     echo "Performing health check on the container..."
-                    sh 'until curl -s http://localhost:80; do sleep 5; done'
+                    sh 'timeout 60 sh -c "until curl -s http://localhost:80; do sleep 5; done"'
                 }
             }
         }
