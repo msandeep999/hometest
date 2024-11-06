@@ -1,18 +1,22 @@
-# Use a Node.js base image
+# Dockerfile
+
+# Use Node.js version 16 as the base image
 FROM node:16
 
-# Set the working directory inside the container
+# Create and set the working directory inside the container
 WORKDIR /app
 
-# Copy the package.json and install dependencies
-COPY package.json /app
+# Copy package.json and package-lock.json to the container
+COPY package.json ./
+
+# Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
-COPY . /app
+# Copy the rest of the application code to the container
+COPY . .
 
-# Expose the port that the app will run on
+# Expose port 80 for the app
 EXPOSE 80
 
-# Run the app
+# Start the application
 CMD ["npm", "start"]
