@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Load the secret file into an environment variable
-        SECRET_FILE = credentials('my-secret-file-id')
+        SECRET_FILE = credentials('my-secret-id')
     }
 
     stages {
