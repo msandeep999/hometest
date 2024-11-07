@@ -1,12 +1,12 @@
-// index.js
 const express = require('express');
 const app = express();
-const port = 80;
+
+const PORT = 80; // Change this to port 80
 
 app.get('/', (req, res) => {
-  res.send('Hello from Dockerized Node.js app!');
+    res.send('Hello World!');
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
