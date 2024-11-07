@@ -4,7 +4,7 @@ const app = express();
 const PORT = 80; // Change this to port 80
 
 app.get('/', (req, res) => {
-    res.send('Hello World!');
+    res.send('This is a nodejs Application!');
 });
 
 app.listen(PORT, () => {
